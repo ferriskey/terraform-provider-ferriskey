@@ -1,0 +1,1 @@
+terraform import ferriskey_organization_member.example acme/ORG_UUID/USER_UUID

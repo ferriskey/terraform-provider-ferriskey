@@ -1,0 +1,29 @@
+# Compiled provider binary
+terraform-provider-ferriskey
+dist/
+
+# Local Terraform working files
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+crash.log
+crash.*.log
+
+# Local dev override for the provider
+.terraformrc
+terraform.rc
+
+# Go test / coverage artifacts
+*.test
+*.out
+coverage.txt
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+
+# Local environment files that may carry secrets
+.env
+.env.*

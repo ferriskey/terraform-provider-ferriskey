@@ -1,0 +1,114 @@
+name: Tests
+
+on:
+  pull_request:
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "README.md"
+      - "docs/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & unit test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go mod download
+      - name: Build
+        run: go build -v ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Check formatting
+        run: |
+          unformatted=$(gofmt -s -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-ed:"
+            echo "$unformatted"
+            exit 1
+          fi
+      - name: Unit tests
+        run: go test ./... -count=1 -timeout 120s
+
+  docs:
+    name: Docs are up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go generate ./...
+      - name: Verify no diff in generated docs
+        run: |
+          git diff --compact-summary --exit-code -- docs || \
+            (echo "Docs out of date. Run 'go generate ./...' and commit the result." && exit 1)
+
+  acceptance:
+    name: Acceptance tests
+    runs-on: ubuntu-latest
+    # Acceptance tests need a live FerrisKey instance. They run against a
+    # service container started for the job. Skipped on forks without secrets.
+    needs: build
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ferriskey
+          POSTGRES_PASSWORD: ferriskey
+          POSTGRES_DB: ferriskey
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ferriskey"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      ferriskey:
+        image: ghcr.io/ferriskey/ferriskey-api:latest
+        env:
+          DATABASE_URL: postgres://ferriskey:ferriskey@postgres:5432/ferriskey
+          FERRISKEY_ADMIN_USERNAME: admin
+          FERRISKEY_ADMIN_PASSWORD: admin
+        ports:
+          - 3333:3333
+    env:
+      TF_ACC: "1"
+      FERRISKEY_URL: http://localhost:3333
+      FERRISKEY_REALM: master
+      FERRISKEY_CLIENT_ID: admin-cli
+      FERRISKEY_USERNAME: admin
+      FERRISKEY_PASSWORD: admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.11.*"
+          terraform_wrapper: false
+      - name: Wait for FerrisKey
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS "$FERRISKEY_URL/realms/master/.well-known/openid-configuration" >/dev/null; then
+              echo "FerrisKey is up"; exit 0
+            fi
+            sleep 2
+          done
+          echo "FerrisKey did not become ready in time"; exit 1
+      - name: Acceptance tests
+        run: go test ./internal/provider/... -count=1 -timeout 30m -v

@@ -1,0 +1,1 @@
+terraform import ferriskey_organization_group_role.example acme/ORG_UUID/GROUP_UUID/ROLE_UUID

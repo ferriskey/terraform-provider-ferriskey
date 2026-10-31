@@ -1,0 +1,1 @@
+terraform import ferriskey_organization_attribute.tier acme/ORG_UUID/tier

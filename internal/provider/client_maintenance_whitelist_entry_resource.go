@@ -160,7 +160,7 @@ func (r *clientMaintenanceWhitelistEntryResource) Delete(ctx context.Context, re
 }
 
 func (r *clientMaintenanceWhitelistEntryResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts, err := samlmSplitID(req.ID, "realm", "client_uuid", "entry_id")
+	parts, err := parseCompositeID(req.ID, "realm", "client_uuid", "entry_id")
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid import ID", err.Error())
 		return

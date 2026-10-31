@@ -178,7 +178,7 @@ func (r *portalThemePageResource) Delete(ctx context.Context, req resource.Delet
 }
 
 func (r *portalThemePageResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts, err := portalParseID(req.ID, "realm", "theme_id", "page_type")
+	parts, err := parseCompositeID(req.ID, "realm", "theme_id", "page_type")
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid import ID", err.Error())
 		return

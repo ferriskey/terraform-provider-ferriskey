@@ -3,8 +3,6 @@ package provider
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -27,19 +25,6 @@ var (
 )
 
 const samlmNameIDEmail = "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
-
-func samlmSplitID(s string, names ...string) ([]string, error) {
-	parts := strings.Split(s, "/")
-	if len(parts) != len(names) {
-		return nil, fmt.Errorf("invalid import ID %q: expected the format \"{%s}\"", s, strings.Join(names, "}/{"))
-	}
-	for _, p := range parts {
-		if p == "" {
-			return nil, fmt.Errorf("invalid import ID %q: expected the format \"{%s}\"", s, strings.Join(names, "}/{"))
-		}
-	}
-	return parts, nil
-}
 
 func samlmUUIDRealmPlan() []planmodifier.String {
 	return []planmodifier.String{stringplanmodifier.RequiresReplace()}
@@ -216,7 +201,7 @@ func (r *clientSamlConfigResource) Delete(_ context.Context, _ resource.DeleteRe
 }
 
 func (r *clientSamlConfigResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts, err := samlmSplitID(req.ID, "realm", "client_uuid")
+	parts, err := parseCompositeID(req.ID, "realm", "client_uuid")
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid import ID", err.Error())
 		return

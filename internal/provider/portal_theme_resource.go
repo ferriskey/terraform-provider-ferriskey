@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 
@@ -190,7 +189,7 @@ func (r *portalThemeResource) Delete(ctx context.Context, req resource.DeleteReq
 }
 
 func (r *portalThemeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts, err := portalParseID(req.ID, "realm", "theme_id")
+	parts, err := parseCompositeID(req.ID, "realm", "theme_id")
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid import ID", err.Error())
 		return
@@ -269,18 +268,6 @@ func portalReconcileJSON(prior types.String, server json.RawMessage, subset bool
 		return types.StringNull(), err
 	}
 	return types.StringValue(string(normalized)), nil
-}
-
-func portalParseID(s string, names ...string) ([]string, error) {
-	parts := strings.SplitN(s, "/", len(names))
-	valid := len(parts) == len(names)
-	for _, p := range parts {
-		valid = valid && p != ""
-	}
-	if !valid {
-		return nil, fmt.Errorf("invalid import ID %q: expected the format \"{%s}\"", s, strings.Join(names, "}/{"))
-	}
-	return parts, nil
 }
 
 func portalAPIMessageContains(err error, substr string) bool {

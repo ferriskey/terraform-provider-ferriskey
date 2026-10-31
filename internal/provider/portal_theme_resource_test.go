@@ -26,11 +26,11 @@ func TestPortalJSONContains(t *testing.T) {
 }
 
 func TestPortalParseID(t *testing.T) {
-	parts, err := portalParseID("r/t/login", "realm", "theme_id", "page_type")
+	parts, err := parseCompositeID("r/t/login", "realm", "theme_id", "page_type")
 	if err != nil || len(parts) != 3 || parts[2] != "login" {
 		t.Fatalf("%v %v", parts, err)
 	}
-	if _, err = portalParseID("r/t", "realm", "theme_id", "page_type"); err == nil {
+	if _, err = parseCompositeID("r/t", "realm", "theme_id", "page_type"); err == nil {
 		t.Fatal("expected error")
 	}
 }

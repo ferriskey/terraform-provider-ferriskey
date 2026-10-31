@@ -66,13 +66,23 @@ func orgMembersBase(realm, orgID string) string {
 	return fmt.Sprintf("/realms/%s/organizations/%s/members", url.PathEscape(realm), url.PathEscape(orgID))
 }
 
-// ListOrganizationMembers returns the members of an organization (bare list).
+// ListOrganizationMembers returns every member of an organization, walking the
+// paginated { "data": [...], "metadata": {...} } envelope.
 func (c *Client) ListOrganizationMembers(ctx context.Context, realm, orgID string) ([]OrganizationMember, error) {
-	var members []OrganizationMember
-	if err := c.do(ctx, "GET", orgMembersBase(realm, orgID), nil, &members); err != nil {
-		return nil, err
+	var all []OrganizationMember
+	for page := 1; ; page++ {
+		var env struct {
+			Data     []OrganizationMember `json:"data"`
+			Metadata orgPageMeta          `json:"metadata"`
+		}
+		if err := c.do(ctx, "GET", orgExtPage(orgMembersBase(realm, orgID), page), nil, &env); err != nil {
+			return nil, err
+		}
+		all = append(all, env.Data...)
+		if page >= env.Metadata.TotalPages {
+			return all, nil
+		}
 	}
-	return members, nil
 }
 
 // AddOrganizationMember adds a user to an organization.

@@ -4,6 +4,14 @@ import (
 	"context"
 	"errors"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -49,6 +57,27 @@ type realmSettingsResourceModel struct {
 	EmailVerificationTTLHours types.Int64  `tfsdk:"email_verification_ttl_hours"`
 	DefaultSigningAlgorithm   types.String `tfsdk:"default_signing_algorithm"`
 	UpdatedAt                 types.String `tfsdk:"updated_at"`
+
+	ResetPasswordTemplateID     types.String `tfsdk:"reset_password_template_id"`
+	MagicLinkTemplateID         types.String `tfsdk:"magic_link_template_id"`
+	EmailVerificationTemplateID types.String `tfsdk:"email_verification_template_id"`
+	LoginAliases                types.List   `tfsdk:"login_aliases"`
+	DefaultLocale               types.String `tfsdk:"default_locale"`
+	SupportedLocales            types.Set    `tfsdk:"supported_locales"`
+	RequireMFA                  types.Bool   `tfsdk:"require_mfa"`
+	EditUsernameEnabled         types.Bool   `tfsdk:"edit_username_enabled"`
+	LockoutThreshold            types.Int64  `tfsdk:"lockout_threshold"`
+	LockoutDurationSeconds      types.Int64  `tfsdk:"lockout_duration_seconds"`
+	SeawatchPIIMode             types.String `tfsdk:"seawatch_pii_mode"`
+	SeawatchPseudoKey           types.String `tfsdk:"seawatch_pseudo_key"`
+	WebhookRetryMaxAttempts     types.Int64  `tfsdk:"webhook_retry_max_attempts"`
+	WebhookRetryBaseDelayMs     types.Int64  `tfsdk:"webhook_retry_base_delay_ms"`
+	WebhookRetryMaxDelayMs      types.Int64  `tfsdk:"webhook_retry_max_delay_ms"`
+	WebhookRetryMaxTotalDelayMs types.Int64  `tfsdk:"webhook_retry_max_total_delay_ms"`
+	CimdEnabled                 types.Bool   `tfsdk:"cimd_enabled"`
+	DcrEnabled                  types.Bool   `tfsdk:"dcr_enabled"`
+	CimdAllowedHosts            types.Set    `tfsdk:"cimd_allowed_hosts"`
+	AllowedResources            types.Set    `tfsdk:"allowed_resources"`
 }
 
 func (r *realmSettingsResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -66,6 +95,18 @@ func (r *realmSettingsResource) Schema(_ context.Context, _ resource.SchemaReque
 		return schema.Int64Attribute{
 			MarkdownDescription: d, Optional: true, Computed: true,
 			PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+		}
+	}
+	strAttr := func(d string, v ...validator.String) schema.Attribute {
+		return schema.StringAttribute{
+			MarkdownDescription: d, Optional: true, Computed: true, Validators: v,
+			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+		}
+	}
+	setAttr := func(d string) schema.Attribute {
+		return schema.SetAttribute{
+			MarkdownDescription: d, Optional: true, Computed: true, ElementType: types.StringType,
+			PlanModifiers: []planmodifier.Set{setplanmodifier.UseStateForUnknown()},
 		}
 	}
 	resp.Schema = schema.Schema{
@@ -108,6 +149,44 @@ func (r *realmSettingsResource) Schema(_ context.Context, _ resource.SchemaReque
 				MarkdownDescription: "RFC3339 last-update timestamp.",
 				Computed:            true,
 			},
+			"reset_password_template_id":     strAttr("UUID of the `ferriskey_email_template` used for password reset emails."),
+			"magic_link_template_id":         strAttr("UUID of the `ferriskey_email_template` used for magic-link emails."),
+			"email_verification_template_id": strAttr("UUID of the `ferriskey_email_template` used for email verification."),
+			"login_aliases": schema.ListAttribute{
+				MarkdownDescription: "Ordered login identifiers the realm accepts (`username`, `email`). The first alias " +
+					"that resolves a user wins.",
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
+				Validators: []validator.List{
+					listvalidator.SizeAtLeast(1),
+					listvalidator.UniqueValues(),
+					listvalidator.ValueStringsAre(stringvalidator.OneOf("username", "email")),
+				},
+				PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
+			},
+			"default_locale":           strAttr("Default UI locale (e.g. `en`)."),
+			"supported_locales":        setAttr("Locales users can choose from."),
+			"require_mfa":              boolAttr("Whether every user must enroll a second factor."),
+			"edit_username_enabled":    boolAttr("Whether users may change their own username from the account console."),
+			"lockout_threshold":        intAttr("Failed login attempts before an account is locked."),
+			"lockout_duration_seconds": intAttr("How long a locked account stays locked (seconds)."),
+			"seawatch_pii_mode": strAttr("How personal data appears in Seawatch security events: `off`, `mask` or `pseudonymise`.",
+				stringvalidator.OneOf("off", "mask", "pseudonymise")),
+			"seawatch_pseudo_key": schema.StringAttribute{
+				MarkdownDescription: "HMAC key used when `seawatch_pii_mode` is `pseudonymise`. Write-only: the API never " +
+					"returns it, so changes made outside Terraform are not detected.",
+				Optional:  true,
+				Sensitive: true,
+			},
+			"webhook_retry_max_attempts":       intAttr("Maximum webhook delivery attempts. Server default when unset."),
+			"webhook_retry_base_delay_ms":      intAttr("Base delay between webhook retries (milliseconds)."),
+			"webhook_retry_max_delay_ms":       intAttr("Maximum delay between webhook retries (milliseconds)."),
+			"webhook_retry_max_total_delay_ms": intAttr("Maximum total time spent retrying a webhook delivery (milliseconds)."),
+			"cimd_enabled":                     boolAttr("Whether clients may register through Client ID Metadata Documents."),
+			"dcr_enabled":                      boolAttr("Whether OAuth 2.0 Dynamic Client Registration is enabled."),
+			"cimd_allowed_hosts":               setAttr("Hosts allowed to serve Client ID Metadata Documents."),
+			"allowed_resources":                setAttr("Resource indicators (RFC 8707) clients may request. Required before using `ferriskey_resource_owners`."),
 		},
 	}
 }
@@ -121,8 +200,10 @@ func (r *realmSettingsResource) Configure(_ context.Context, req resource.Config
 	r.client = c
 }
 
-// buildRequest maps the plan into a partial update request (only known values).
-func buildRealmSettingsRequest(m realmSettingsResourceModel) client.UpdateRealmSettingsRequest {
+// buildRealmSettingsRequest maps the plan into a partial update request (only
+// known values).
+func buildRealmSettingsRequest(ctx context.Context, m realmSettingsResourceModel) (client.UpdateRealmSettingsRequest, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	req := client.UpdateRealmSettingsRequest{
 		AccessTokenLifetime:       int64Ptr(m.AccessTokenLifetime),
 		RefreshTokenLifetime:      int64Ptr(m.RefreshTokenLifetime),
@@ -137,12 +218,51 @@ func buildRealmSettingsRequest(m realmSettingsResourceModel) client.UpdateRealmS
 		EmailVerificationEnabled:  boolPtr(m.EmailVerificationEnabled),
 		EmailVerificationTTLHours: int64Ptr(m.EmailVerificationTTLHours),
 		DefaultSigningAlgorithm:   strPtr(m.DefaultSigningAlgorithm),
+
+		ResetPasswordTemplateID:     strPtr(m.ResetPasswordTemplateID),
+		MagicLinkTemplateID:         strPtr(m.MagicLinkTemplateID),
+		EmailVerificationTemplateID: strPtr(m.EmailVerificationTemplateID),
+		DefaultLocale:               strPtr(m.DefaultLocale),
+		RequireMFA:                  boolPtr(m.RequireMFA),
+		EditUsernameEnabled:         boolPtr(m.EditUsernameEnabled),
+		LockoutThreshold:            int64Ptr(m.LockoutThreshold),
+		LockoutDurationSeconds:      int64Ptr(m.LockoutDurationSeconds),
+		SeawatchPIIMode:             strPtr(m.SeawatchPIIMode),
+		SeawatchPseudoKey:           strPtr(m.SeawatchPseudoKey),
+		WebhookRetryMaxAttempts:     int64Ptr(m.WebhookRetryMaxAttempts),
+		WebhookRetryBaseDelayMs:     int64Ptr(m.WebhookRetryBaseDelayMs),
+		WebhookRetryMaxDelayMs:      int64Ptr(m.WebhookRetryMaxDelayMs),
+		WebhookRetryMaxTotalDelayMs: int64Ptr(m.WebhookRetryMaxTotalDelayMs),
+		CimdEnabled:                 boolPtr(m.CimdEnabled),
+		DcrEnabled:                  boolPtr(m.DcrEnabled),
 	}
 	if v := int64Ptr(m.MagicLinkTTL); v != nil {
 		ttl := int32(*v)
 		req.MagicLinkTTL = &ttl
 	}
-	return req
+	if !m.LoginAliases.IsNull() && !m.LoginAliases.IsUnknown() {
+		aliases := []string{}
+		diags.Append(m.LoginAliases.ElementsAs(ctx, &aliases, false)...)
+		req.LoginAliases = &aliases
+	}
+	req.SupportedLocales = realmSettingsSetPtr(ctx, m.SupportedLocales, &diags)
+	req.CimdAllowedHosts = realmSettingsSetPtr(ctx, m.CimdAllowedHosts, &diags)
+	req.AllowedResources = realmSettingsSetPtr(ctx, m.AllowedResources, &diags)
+	return req, diags
+}
+
+// realmSettingsSetPtr returns nil for a null/unknown set (leave unchanged) and
+// a pointer to a possibly empty slice otherwise, so `[]` clears the list.
+func realmSettingsSetPtr(ctx context.Context, set types.Set, diags *diag.Diagnostics) *[]string {
+	if set.IsNull() || set.IsUnknown() {
+		return nil
+	}
+	values, d := stringSlice(ctx, set)
+	diags.Append(d...)
+	if values == nil {
+		values = []string{}
+	}
+	return &values
 }
 
 func (r *realmSettingsResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -151,12 +271,17 @@ func (r *realmSettingsResource) Create(ctx context.Context, req resource.CreateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	settings, err := r.client.UpdateRealmSettings(ctx, plan.Realm.ValueString(), buildRealmSettingsRequest(plan))
+	body, d := buildRealmSettingsRequest(ctx, plan)
+	resp.Diagnostics.Append(d...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	settings, err := r.client.UpdateRealmSettings(ctx, plan.Realm.ValueString(), body)
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating realm settings", err.Error())
 		return
 	}
-	r.flatten(plan.Realm.ValueString(), settings, &plan)
+	resp.Diagnostics.Append(r.flatten(plan.Realm.ValueString(), settings, &plan)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -179,7 +304,7 @@ func (r *realmSettingsResource) Read(ctx context.Context, req resource.ReadReque
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	r.flatten(state.Realm.ValueString(), settings, &state)
+	resp.Diagnostics.Append(r.flatten(state.Realm.ValueString(), settings, &state)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -189,12 +314,17 @@ func (r *realmSettingsResource) Update(ctx context.Context, req resource.UpdateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	settings, err := r.client.UpdateRealmSettings(ctx, plan.Realm.ValueString(), buildRealmSettingsRequest(plan))
+	body, d := buildRealmSettingsRequest(ctx, plan)
+	resp.Diagnostics.Append(d...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	settings, err := r.client.UpdateRealmSettings(ctx, plan.Realm.ValueString(), body)
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating realm settings", err.Error())
 		return
 	}
-	r.flatten(plan.Realm.ValueString(), settings, &plan)
+	resp.Diagnostics.Append(r.flatten(plan.Realm.ValueString(), settings, &plan)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -208,7 +338,8 @@ func (r *realmSettingsResource) ImportState(ctx context.Context, req resource.Im
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
 }
 
-func (r *realmSettingsResource) flatten(realm string, s *client.RealmSetting, m *realmSettingsResourceModel) {
+func (r *realmSettingsResource) flatten(realm string, s *client.RealmSetting, m *realmSettingsResourceModel) diag.Diagnostics {
+	var diags diag.Diagnostics
 	m.Realm = types.StringValue(realm)
 	m.ID = types.StringValue(realm)
 	m.AccessTokenLifetime = types.Int64Value(s.AccessTokenLifetime)
@@ -226,4 +357,41 @@ func (r *realmSettingsResource) flatten(realm string, s *client.RealmSetting, m 
 	m.EmailVerificationTTLHours = types.Int64Value(s.EmailVerificationTTL)
 	m.DefaultSigningAlgorithm = stringFromPtr(s.DefaultSigningAlgorithm)
 	m.UpdatedAt = types.StringValue(s.UpdatedAt.Format(timeLayout))
+
+	m.ResetPasswordTemplateID = stringFromPtr(s.ResetPasswordTemplateID)
+	m.MagicLinkTemplateID = stringFromPtr(s.MagicLinkTemplateID)
+	m.EmailVerificationTemplateID = stringFromPtr(s.EmailVerificationTemplateID)
+	m.DefaultLocale = types.StringValue(s.DefaultLocale)
+	m.RequireMFA = types.BoolValue(s.RequireMFA)
+	m.EditUsernameEnabled = types.BoolValue(s.EditUsernameEnabled)
+	m.LockoutThreshold = types.Int64Value(s.LockoutThreshold)
+	m.LockoutDurationSeconds = types.Int64Value(s.LockoutDurationSeconds)
+	m.SeawatchPIIMode = types.StringValue(s.SeawatchPIIMode)
+	m.WebhookRetryMaxAttempts = int64FromPtr(s.WebhookRetryMaxAttempts)
+	m.WebhookRetryBaseDelayMs = int64FromPtr(s.WebhookRetryBaseDelayMs)
+	m.WebhookRetryMaxDelayMs = int64FromPtr(s.WebhookRetryMaxDelayMs)
+	m.WebhookRetryMaxTotalDelayMs = int64FromPtr(s.WebhookRetryMaxTotalDelayMs)
+	m.CimdEnabled = types.BoolValue(s.CimdEnabled)
+	m.DcrEnabled = types.BoolValue(s.DcrEnabled)
+
+	aliases := make([]attr.Value, 0, len(s.LoginAliases))
+	for _, a := range s.LoginAliases {
+		aliases = append(aliases, types.StringValue(a))
+	}
+	list, d := types.ListValue(types.StringType, aliases)
+	diags.Append(d...)
+	m.LoginAliases = list
+	for _, f := range []struct {
+		dst    *types.Set
+		values []string
+	}{
+		{&m.SupportedLocales, s.SupportedLocales},
+		{&m.CimdAllowedHosts, s.CimdAllowedHosts},
+		{&m.AllowedResources, s.AllowedResources},
+	} {
+		set, d := stringSetValue(f.values)
+		diags.Append(d...)
+		*f.dst = set
+	}
+	return diags
 }

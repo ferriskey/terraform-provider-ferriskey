@@ -16,6 +16,9 @@ resource "ferriskey_client" "web" {
 
   # Optional token lifetime overrides (seconds).
   access_token_lifetime = 300
+
+  require_pkce           = true
+  backchannel_logout_uri = "https://app.acme.example/backchannel-logout"
 }
 
 # A public SPA client.

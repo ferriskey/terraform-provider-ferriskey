@@ -36,3 +36,15 @@ func TestParseRealmScopedID(t *testing.T) {
 		}
 	}
 }
+
+func TestParseCompositeID(t *testing.T) {
+	got, err := parseCompositeID("master/c1/m1", "realm", "client_id", "id")
+	if err != nil || len(got) != 3 || got[0] != "master" || got[1] != "c1" || got[2] != "m1" {
+		t.Fatalf("unexpected result %v, %v", got, err)
+	}
+	for _, bad := range []string{"master/c1", "master//m1", "/c1/m1", ""} {
+		if _, err := parseCompositeID(bad, "realm", "client_id", "id"); err == nil {
+			t.Errorf("expected error for %q", bad)
+		}
+	}
+}

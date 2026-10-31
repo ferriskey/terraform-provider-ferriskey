@@ -1,0 +1,1 @@
+terraform import ferriskey_organization_group_attribute.cost_center acme/ORG_UUID/GROUP_UUID/cost-center

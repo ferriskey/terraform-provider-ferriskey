@@ -1,0 +1,1 @@
+terraform import ferriskey_authz_schema.main acme

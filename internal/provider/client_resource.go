@@ -56,6 +56,14 @@ type clientResourceModel struct {
 	IDTokenLifetime           types.Int64  `tfsdk:"id_token_lifetime"`
 	TemporaryTokenLifetime    types.Int64  `tfsdk:"temporary_token_lifetime"`
 	RedirectURIs              types.Set    `tfsdk:"redirect_uris"`
+
+	OAuthDeviceCodeGrantEnabled      types.Bool   `tfsdk:"oauth_device_code_grant_enabled"`
+	RequirePKCE                      types.Bool   `tfsdk:"require_pkce"`
+	TokenExchangeEnabled             types.Bool   `tfsdk:"token_exchange_enabled"`
+	ConsentRequired                  types.Bool   `tfsdk:"consent_required"`
+	BackchannelLogoutURI             types.String `tfsdk:"backchannel_logout_uri"`
+	BackchannelLogoutSessionRequired types.Bool   `tfsdk:"backchannel_logout_session_required"`
+	RegistrationSource               types.String `tfsdk:"registration_source"`
 }
 
 func (r *clientResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -63,6 +71,12 @@ func (r *clientResource) Metadata(_ context.Context, req resource.MetadataReques
 }
 
 func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	boolAttr := func(d string) schema.Attribute {
+		return schema.BoolAttribute{
+			MarkdownDescription: d, Optional: true, Computed: true,
+			PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+		}
+	}
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Manages a client (OAuth2/OIDC application) within a FerrisKey realm.",
 		Attributes: map[string]schema.Attribute{
@@ -186,6 +200,20 @@ func (r *clientResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 					setplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"oauth_device_code_grant_enabled": boolAttr("Whether the client may use the OAuth 2.0 Device Authorization Grant."),
+			"require_pkce":                    boolAttr("Whether the authorization code flow requires PKCE."),
+			"token_exchange_enabled":          boolAttr("Whether the client may use OAuth 2.0 Token Exchange (RFC 8693). See `ferriskey_client_token_exchange_policy`."),
+			"consent_required":                boolAttr("Whether users must grant consent before the client receives tokens."),
+			"backchannel_logout_uri": schema.StringAttribute{
+				MarkdownDescription: "OIDC Back-Channel Logout endpoint of the client. Remove it from the configuration to clear it.",
+				Optional:            true,
+			},
+			"backchannel_logout_session_required": boolAttr("Whether the client needs the `sid` claim in its logout tokens."),
+			"registration_source": schema.StringAttribute{
+				MarkdownDescription: "How the client was registered (e.g. `admin`, `dynamic`).",
+				Computed:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
 		},
 	}
 }
@@ -224,6 +252,11 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 		PublicClient:              boolPtr(plan.PublicClient),
 		ServiceAccountEnabled:     boolPtr(plan.ServiceAccountEnabled),
 		DirectAccessGrantsEnabled: boolPtr(plan.DirectAccessGrantsEnabled),
+
+		OAuthDeviceCodeGrantEnabled: boolPtr(plan.OAuthDeviceCodeGrantEnabled),
+		RequirePKCE:                 boolPtr(plan.RequirePKCE),
+		TokenExchangeEnabled:        boolPtr(plan.TokenExchangeEnabled),
+		ConsentRequired:             boolPtr(plan.ConsentRequired),
 	}
 
 	created, err := r.client.CreateClient(ctx, realm, createReq)
@@ -232,17 +265,22 @@ func (r *clientResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	// Token lifetimes are not part of the create body; apply them with a
-	// follow-up PATCH when the configuration sets any of them.
-	if needsLifetimePatch(plan) {
-		updated, err := r.client.UpdateClient(ctx, realm, created.ID, client.UpdateClientRequest{
-			AccessTokenLifetime:    int64Ptr(plan.AccessTokenLifetime),
-			RefreshTokenLifetime:   int64Ptr(plan.RefreshTokenLifetime),
-			IDTokenLifetime:        int64Ptr(plan.IDTokenLifetime),
-			TemporaryTokenLifetime: int64Ptr(plan.TemporaryTokenLifetime),
-		})
+	// Token lifetimes and back-channel logout are not part of the create body;
+	// apply them with a follow-up PATCH when the configuration sets any of them.
+	if needsPostCreatePatch(plan) {
+		patch := client.UpdateClientRequest{
+			AccessTokenLifetime:              int64Ptr(plan.AccessTokenLifetime),
+			RefreshTokenLifetime:             int64Ptr(plan.RefreshTokenLifetime),
+			IDTokenLifetime:                  int64Ptr(plan.IDTokenLifetime),
+			TemporaryTokenLifetime:           int64Ptr(plan.TemporaryTokenLifetime),
+			BackchannelLogoutSessionRequired: boolPtr(plan.BackchannelLogoutSessionRequired),
+		}
+		if uri := strPtr(plan.BackchannelLogoutURI); uri != nil {
+			patch.BackchannelLogoutURI = &uri
+		}
+		updated, err := r.client.UpdateClient(ctx, realm, created.ID, patch)
 		if err != nil {
-			resp.Diagnostics.AddError("Error setting client token lifetimes", err.Error())
+			resp.Diagnostics.AddError("Error setting client token lifetimes and back-channel logout", err.Error())
 			return
 		}
 		created = updated
@@ -310,6 +348,7 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 	realm := plan.Realm.ValueString()
 	uuid := state.ClientUUID.ValueString()
 
+	backchannelURI := strPtr(plan.BackchannelLogoutURI)
 	updated, err := r.client.UpdateClient(ctx, realm, uuid, client.UpdateClientRequest{
 		ClientID:                  strPtr(plan.ClientID),
 		Name:                      strPtr(plan.Name),
@@ -319,6 +358,13 @@ func (r *clientResource) Update(ctx context.Context, req resource.UpdateRequest,
 		RefreshTokenLifetime:      int64Ptr(plan.RefreshTokenLifetime),
 		IDTokenLifetime:           int64Ptr(plan.IDTokenLifetime),
 		TemporaryTokenLifetime:    int64Ptr(plan.TemporaryTokenLifetime),
+
+		OAuthDeviceCodeGrantEnabled:      boolPtr(plan.OAuthDeviceCodeGrantEnabled),
+		RequirePKCE:                      boolPtr(plan.RequirePKCE),
+		TokenExchangeEnabled:             boolPtr(plan.TokenExchangeEnabled),
+		ConsentRequired:                  boolPtr(plan.ConsentRequired),
+		BackchannelLogoutURI:             &backchannelURI,
+		BackchannelLogoutSessionRequired: boolPtr(plan.BackchannelLogoutSessionRequired),
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating client", err.Error())
@@ -409,6 +455,13 @@ func (r *clientResource) flatten(ctx context.Context, realm string, cl *client.A
 	m.RefreshTokenLifetime = int64FromPtr(cl.RefreshTokenLifetime)
 	m.IDTokenLifetime = int64FromPtr(cl.IDTokenLifetime)
 	m.TemporaryTokenLifetime = int64FromPtr(cl.TemporaryTokenLifetime)
+	m.OAuthDeviceCodeGrantEnabled = types.BoolValue(cl.OAuthDeviceCodeGrantEnabled)
+	m.RequirePKCE = types.BoolValue(cl.RequirePKCE)
+	m.TokenExchangeEnabled = types.BoolValue(cl.TokenExchangeEnabled)
+	m.ConsentRequired = types.BoolValue(cl.ConsentRequired)
+	m.BackchannelLogoutURI = stringFromPtr(cl.BackchannelLogoutURI)
+	m.BackchannelLogoutSessionRequired = types.BoolValue(cl.BackchannelLogoutSessionRequired)
+	m.RegistrationSource = types.StringValue(cl.RegistrationSource)
 
 	values := make([]string, 0, len(cl.RedirectURIs))
 	for _, u := range cl.RedirectURIs {
@@ -421,9 +474,11 @@ func (r *clientResource) flatten(ctx context.Context, realm string, cl *client.A
 	return diags
 }
 
-func needsLifetimePatch(m clientResourceModel) bool {
+func needsPostCreatePatch(m clientResourceModel) bool {
 	return int64Ptr(m.AccessTokenLifetime) != nil ||
 		int64Ptr(m.RefreshTokenLifetime) != nil ||
 		int64Ptr(m.IDTokenLifetime) != nil ||
-		int64Ptr(m.TemporaryTokenLifetime) != nil
+		int64Ptr(m.TemporaryTokenLifetime) != nil ||
+		strPtr(m.BackchannelLogoutURI) != nil ||
+		boolPtr(m.BackchannelLogoutSessionRequired) != nil
 }

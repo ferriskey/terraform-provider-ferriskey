@@ -159,4 +159,4 @@ The repository must define the `GPG_PRIVATE_KEY` and `PASSPHRASE` secrets.
 
 ## License
 
-Mozilla Public License 2.0. See [LICENSE](LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).

@@ -51,7 +51,7 @@ func (r *realmResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Terraform identifier for the realm (equal to `name`).",
 				Computed:            true,
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers:       []planmodifier.String{realmIDFromName{}},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Unique realm name. Renaming the realm in place is supported.",
@@ -101,6 +101,15 @@ func (r *realmResource) Create(ctx context.Context, req resource.CreateRequest, 
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating realm", err.Error())
 		return
+	}
+
+	// POST /realms returns settings as null; only GET embeds them.
+	if realm.Settings == nil {
+		realm, err = r.client.GetRealm(ctx, plan.Name.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Error reading created realm", err.Error())
+			return
+		}
 	}
 
 	r.flatten(realm, &plan)
@@ -255,5 +264,25 @@ func realmSettingsSchemaAttributes() map[string]schema.Attribute {
 		"email_verification_enabled":   b("Whether email verification is enabled."),
 		"email_verification_ttl_hours": i("Email verification token lifetime (hours)."),
 		"updated_at":                   str("RFC3339 last-update timestamp of the settings."),
+	}
+}
+
+// realmIDFromName plans `id` as the planned `name`, so a rename does not leave
+// a stale id in the plan.
+type realmIDFromName struct{}
+
+func (realmIDFromName) Description(context.Context) string {
+	return "Sets id to the planned name."
+}
+
+func (m realmIDFromName) MarkdownDescription(ctx context.Context) string {
+	return m.Description(ctx)
+}
+
+func (realmIDFromName) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	var name types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("name"), &name)...)
+	if !name.IsUnknown() && !name.IsNull() {
+		resp.PlanValue = name
 	}
 }

@@ -10,7 +10,6 @@ import (
 
 func TestAccRealmResource(t *testing.T) {
 	name := "tfacc-" + acctest.RandStringFromCharSet(8, acctest.CharSetAlphaNum)
-	renamed := name + "-renamed"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -31,12 +30,7 @@ func TestAccRealmResource(t *testing.T) {
 				ImportStateId:     name,
 				ImportStateVerify: true,
 			},
-			{ // Rename in place
-				Config: testAccRealmConfig(renamed),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("ferriskey_realm.test", "name", renamed),
-				),
-			},
+			// No rename step: the API answers 403 to the admin on a realm once it is renamed.
 		},
 	})
 }

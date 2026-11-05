@@ -212,3 +212,27 @@ func TestSetRedirectURIs_ReconcilesAddAndDelete(t *testing.T) {
 		t.Errorf("unexpected final set: %v", values)
 	}
 }
+
+func TestUpdateClientRequest_BackchannelLogoutURI(t *testing.T) {
+	uri := "https://app.example.com/bc"
+	set := &uri
+	var cleared *string
+	cases := []struct {
+		name string
+		req  UpdateClientRequest
+		want string
+	}{
+		{"unchanged", UpdateClientRequest{}, `{}`},
+		{"set", UpdateClientRequest{BackchannelLogoutURI: &set}, `{"backchannel_logout_uri":"https://app.example.com/bc"}`},
+		{"cleared", UpdateClientRequest{BackchannelLogoutURI: &cleared}, `{"backchannel_logout_uri":null}`},
+	}
+	for _, tc := range cases {
+		got, err := json.Marshal(tc.req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != tc.want {
+			t.Errorf("%s: got %s, want %s", tc.name, got, tc.want)
+		}
+	}
+}

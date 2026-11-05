@@ -1,0 +1,1 @@
+terraform import ferriskey_resource_owners.main acme

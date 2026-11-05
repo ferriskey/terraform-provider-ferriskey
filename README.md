@@ -70,9 +70,43 @@ two-phase pattern when standing up a fresh instance.
 | Resource      | `ferriskey_password_policy`       | Realm password policy                                       |
 | Resource      | `ferriskey_smtp_config`           | Realm SMTP settings (write-only password)                   |
 | Resource      | `ferriskey_identity_provider`     | Federation broker (OIDC/SAML)                               |
+| Resource      | `ferriskey_client_scope`          | Client scope (OIDC claims bundle) |
+| Resource      | `ferriskey_client_scope_protocol_mapper` | Protocol mapper on a client scope |
+| Resource      | `ferriskey_client_scope_assignment` | Attaches a scope to a client as `default` or `optional` |
+| Resource      | `ferriskey_client_role`           | Role owned by a client |
+| Resource      | `ferriskey_client_web_origin`     | Allowed CORS origin of a client |
+| Resource      | `ferriskey_client_post_logout_redirect_uri` | Post-logout redirect URI of a client |
+| Resource      | `ferriskey_client_token_exchange_policy` | Token exchange policy of a client |
+| Resource      | `ferriskey_client_saml_config`    | SAML settings of a SAML client |
+| Resource      | `ferriskey_client_saml_attribute_mapper` | SAML attribute mapper of a client |
+| Resource      | `ferriskey_client_maintenance`    | Client maintenance mode |
+| Resource      | `ferriskey_client_maintenance_whitelist_entry` | User or role allowed during client maintenance |
+| Resource      | `ferriskey_realm_maintenance_whitelist_entry` | User or role allowed during realm maintenance |
+| Resource      | `ferriskey_organization_attribute` | Key/value attribute of an organization |
+| Resource      | `ferriskey_organization_member_role` | Role of a member inside an organization |
+| Resource      | `ferriskey_organization_group`    | Group inside an organization |
+| Resource      | `ferriskey_organization_group_attribute` | Key/value attribute of an organization group |
+| Resource      | `ferriskey_organization_group_member` | Adds a user to an organization group |
+| Resource      | `ferriskey_organization_group_role` | Role granted to an organization group |
+| Resource      | `ferriskey_user_attribute`        | Key/value attribute of a user |
+| Resource      | `ferriskey_webhook`               | Realm webhook; secret rotation via `rotate_secret_trigger` |
+| Resource      | `ferriskey_email_template`        | Realm email template |
+| Resource      | `ferriskey_federation_provider`   | User federation (LDAP, Active Directory, Kerberos) |
+| Resource      | `ferriskey_portal_theme`          | Login portal theme |
+| Resource      | `ferriskey_portal_theme_page`     | Page tree of a portal theme |
+| Resource      | `ferriskey_portal_active_theme`   | Active portal theme of a realm |
+| Resource      | `ferriskey_portal_layout`         | Portal layout |
+| Resource      | `ferriskey_portal_default_layout` | Default portal layout of a realm |
+| Resource      | `ferriskey_authz_state`           | Enables Cedar authorization for a realm (server needs `AUTHZ_ENABLED=true`) |
+| Resource      | `ferriskey_authz_schema`          | Cedar schema of a realm |
+| Resource      | `ferriskey_authz_policy`          | Cedar policy |
+| Resource      | `ferriskey_authz_template`        | Cedar policy template |
+| Resource      | `ferriskey_resource_owners`       | Clients owning each protected resource of a realm (authoritative) |
 | Data source   | `ferriskey_realm`                 | Read a realm and its settings                               |
 | Data source   | `ferriskey_role`                  | Look up a role by name (e.g. built-in `staff`, `master-realm`) |
 | Data source   | `ferriskey_openid_configuration`  | Read the realm's OIDC discovery document                    |
+| Data source   | `ferriskey_authz_builtin_schema`  | Built-in Cedar schema of a realm |
+| Data source   | `ferriskey_email_template_variables` | Variables available to an email template type |
 
 Realm-scoped resources use composite IDs of the form `{realm}/{uuid}` for
 `terraform import`. Realms are imported by name.

@@ -25,6 +25,15 @@ resource "ferriskey_realm_settings" "example" {
   user_registration_enabled = true
   passkey_enabled           = true
   magic_link_enabled        = false
+
+  # Users may sign in with their email first, then their username.
+  login_aliases     = ["email", "username"]
+  default_locale    = "en"
+  supported_locales = ["en", "fr"]
+
+  require_mfa              = true
+  lockout_threshold        = 5
+  lockout_duration_seconds = 900
 }
 ```
 
@@ -38,19 +47,39 @@ resource "ferriskey_realm_settings" "example" {
 ### Optional
 
 - `access_token_lifetime` (Number) Access token lifetime (seconds).
+- `allowed_resources` (Set of String) Resource indicators (RFC 8707) clients may request. Required before using `ferriskey_resource_owners`.
+- `cimd_allowed_hosts` (Set of String) Hosts allowed to serve Client ID Metadata Documents.
+- `cimd_enabled` (Boolean) Whether clients may register through Client ID Metadata Documents.
 - `compass_enabled` (Boolean) Whether Compass analytics are enabled.
+- `dcr_enabled` (Boolean) Whether OAuth 2.0 Dynamic Client Registration is enabled.
+- `default_locale` (String) Default UI locale (e.g. `en`).
 - `default_signing_algorithm` (String) Default token signing algorithm (e.g. `RS256`).
+- `edit_username_enabled` (Boolean) Whether users may change their own username from the account console.
 - `email_verification_enabled` (Boolean) Whether email verification is enabled.
+- `email_verification_template_id` (String) UUID of the `ferriskey_email_template` used for email verification.
 - `email_verification_ttl_hours` (Number) Email verification token lifetime (hours).
 - `forgot_password_enabled` (Boolean) Whether the forgot-password flow is enabled.
 - `id_token_lifetime` (Number) ID token lifetime (seconds).
+- `lockout_duration_seconds` (Number) How long a locked account stays locked (seconds).
+- `lockout_threshold` (Number) Failed login attempts before an account is locked.
+- `login_aliases` (List of String) Ordered login identifiers the realm accepts (`username`, `email`). The first alias that resolves a user wins.
 - `magic_link_enabled` (Boolean) Whether magic-link login is enabled.
+- `magic_link_template_id` (String) UUID of the `ferriskey_email_template` used for magic-link emails.
 - `magic_link_ttl` (Number) Magic-link time-to-live (seconds).
 - `passkey_enabled` (Boolean) Whether passkey login is enabled.
 - `refresh_token_lifetime` (Number) Refresh token lifetime (seconds).
 - `remember_me_enabled` (Boolean) Whether 'remember me' is enabled.
+- `require_mfa` (Boolean) Whether every user must enroll a second factor.
+- `reset_password_template_id` (String) UUID of the `ferriskey_email_template` used for password reset emails.
+- `seawatch_pii_mode` (String) How personal data appears in Seawatch security events: `off`, `mask` or `pseudonymise`.
+- `seawatch_pseudo_key` (String, Sensitive) HMAC key used when `seawatch_pii_mode` is `pseudonymise`. Write-only: the API never returns it, so changes made outside Terraform are not detected.
+- `supported_locales` (Set of String) Locales users can choose from.
 - `temporary_token_lifetime` (Number) Temporary token lifetime (seconds).
 - `user_registration_enabled` (Boolean) Whether self-service registration is enabled.
+- `webhook_retry_base_delay_ms` (Number) Base delay between webhook retries (milliseconds).
+- `webhook_retry_max_attempts` (Number) Maximum webhook delivery attempts. Server default when unset.
+- `webhook_retry_max_delay_ms` (Number) Maximum delay between webhook retries (milliseconds).
+- `webhook_retry_max_total_delay_ms` (Number) Maximum total time spent retrying a webhook delivery (milliseconds).
 
 ### Read-Only
 

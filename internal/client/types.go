@@ -76,6 +76,26 @@ type RealmSetting struct {
 	EmailVerificationEnabled bool      `json:"email_verification_enabled"`
 	EmailVerificationTTL     int64     `json:"email_verification_ttl_hours"`
 	UpdatedAt                time.Time `json:"updated_at"`
+
+	ResetPasswordTemplateID     *string  `json:"reset_password_template_id,omitempty"`
+	MagicLinkTemplateID         *string  `json:"magic_link_template_id,omitempty"`
+	EmailVerificationTemplateID *string  `json:"email_verification_template_id,omitempty"`
+	LoginAliases                []string `json:"login_aliases"`
+	DefaultLocale               string   `json:"default_locale"`
+	SupportedLocales            []string `json:"supported_locales"`
+	RequireMFA                  bool     `json:"require_mfa"`
+	EditUsernameEnabled         bool     `json:"edit_username_enabled"`
+	LockoutThreshold            int64    `json:"lockout_threshold"`
+	LockoutDurationSeconds      int64    `json:"lockout_duration_seconds"`
+	SeawatchPIIMode             string   `json:"seawatch_pii_mode"`
+	WebhookRetryMaxAttempts     *int64   `json:"webhook_retry_max_attempts,omitempty"`
+	WebhookRetryBaseDelayMs     *int64   `json:"webhook_retry_base_delay_ms,omitempty"`
+	WebhookRetryMaxDelayMs      *int64   `json:"webhook_retry_max_delay_ms,omitempty"`
+	WebhookRetryMaxTotalDelayMs *int64   `json:"webhook_retry_max_total_delay_ms,omitempty"`
+	CimdEnabled                 bool     `json:"cimd_enabled"`
+	DcrEnabled                  bool     `json:"dcr_enabled"`
+	CimdAllowedHosts            []string `json:"cimd_allowed_hosts"`
+	AllowedResources            []string `json:"allowed_resources"`
 }
 
 // CreateRealmRequest is the body of POST /realms (CreateRealmValidator).
@@ -106,6 +126,27 @@ type UpdateRealmSettingsRequest struct {
 	EmailVerificationEnabled  *bool   `json:"email_verification_enabled,omitempty"`
 	EmailVerificationTTLHours *int64  `json:"email_verification_ttl_hours,omitempty"`
 	DefaultSigningAlgorithm   *string `json:"default_signing_algorithm,omitempty"`
+
+	ResetPasswordTemplateID     *string   `json:"reset_password_template_id,omitempty"`
+	MagicLinkTemplateID         *string   `json:"magic_link_template_id,omitempty"`
+	EmailVerificationTemplateID *string   `json:"email_verification_template_id,omitempty"`
+	LoginAliases                *[]string `json:"login_aliases,omitempty"`
+	DefaultLocale               *string   `json:"default_locale,omitempty"`
+	SupportedLocales            *[]string `json:"supported_locales,omitempty"`
+	RequireMFA                  *bool     `json:"require_mfa,omitempty"`
+	EditUsernameEnabled         *bool     `json:"edit_username_enabled,omitempty"`
+	LockoutThreshold            *int64    `json:"lockout_threshold,omitempty"`
+	LockoutDurationSeconds      *int64    `json:"lockout_duration_seconds,omitempty"`
+	SeawatchPIIMode             *string   `json:"seawatch_pii_mode,omitempty"`
+	SeawatchPseudoKey           *string   `json:"seawatch_pseudo_key,omitempty"`
+	WebhookRetryMaxAttempts     *int64    `json:"webhook_retry_max_attempts,omitempty"`
+	WebhookRetryBaseDelayMs     *int64    `json:"webhook_retry_base_delay_ms,omitempty"`
+	WebhookRetryMaxDelayMs      *int64    `json:"webhook_retry_max_delay_ms,omitempty"`
+	WebhookRetryMaxTotalDelayMs *int64    `json:"webhook_retry_max_total_delay_ms,omitempty"`
+	CimdEnabled                 *bool     `json:"cimd_enabled,omitempty"`
+	DcrEnabled                  *bool     `json:"dcr_enabled,omitempty"`
+	CimdAllowedHosts            *[]string `json:"cimd_allowed_hosts,omitempty"`
+	AllowedResources            *[]string `json:"allowed_resources,omitempty"`
 }
 
 // dataEnvelope is the common { "data": ... } wrapper used by many endpoints.
@@ -136,7 +177,15 @@ type APIClient struct {
 	TemporaryTokenLifetime    *int64        `json:"temporary_token_lifetime,omitempty"`
 	RedirectURIs              []RedirectURI `json:"redirect_uris,omitempty"`
 	CreatedAt                 time.Time     `json:"created_at"`
-	UpdatedAt                 time.Time     `json:"updated_at"`
+
+	OAuthDeviceCodeGrantEnabled      bool      `json:"oauth_device_code_grant_enabled"`
+	RequirePKCE                      bool      `json:"require_pkce"`
+	TokenExchangeEnabled             bool      `json:"token_exchange_enabled"`
+	ConsentRequired                  bool      `json:"consent_required"`
+	BackchannelLogoutURI             *string   `json:"backchannel_logout_uri,omitempty"`
+	BackchannelLogoutSessionRequired bool      `json:"backchannel_logout_session_required"`
+	RegistrationSource               string    `json:"registration_source"`
+	UpdatedAt                        time.Time `json:"updated_at"`
 }
 
 // RedirectURI mirrors the RedirectUri schema. Redirect URIs are managed through
@@ -161,6 +210,11 @@ type CreateClientRequest struct {
 	PublicClient              *bool  `json:"public_client,omitempty"`
 	ServiceAccountEnabled     *bool  `json:"service_account_enabled,omitempty"`
 	DirectAccessGrantsEnabled *bool  `json:"direct_access_grants_enabled,omitempty"`
+
+	OAuthDeviceCodeGrantEnabled *bool `json:"oauth_device_code_grant_enabled,omitempty"`
+	RequirePKCE                 *bool `json:"require_pkce,omitempty"`
+	TokenExchangeEnabled        *bool `json:"token_exchange_enabled,omitempty"`
+	ConsentRequired             *bool `json:"consent_required,omitempty"`
 }
 
 // UpdateClientRequest is the body of PATCH /realms/{realm}/clients/{id}
@@ -175,6 +229,15 @@ type UpdateClientRequest struct {
 	RefreshTokenLifetime      *int64  `json:"refresh_token_lifetime,omitempty"`
 	IDTokenLifetime           *int64  `json:"id_token_lifetime,omitempty"`
 	TemporaryTokenLifetime    *int64  `json:"temporary_token_lifetime,omitempty"`
+
+	OAuthDeviceCodeGrantEnabled *bool `json:"oauth_device_code_grant_enabled,omitempty"`
+	RequirePKCE                 *bool `json:"require_pkce,omitempty"`
+	TokenExchangeEnabled        *bool `json:"token_exchange_enabled,omitempty"`
+	ConsentRequired             *bool `json:"consent_required,omitempty"`
+	// BackchannelLogoutURI is a double pointer: nil leaves the value unchanged,
+	// a pointer to nil sends an explicit null that clears it.
+	BackchannelLogoutURI             **string `json:"backchannel_logout_uri,omitempty"`
+	BackchannelLogoutSessionRequired *bool    `json:"backchannel_logout_session_required,omitempty"`
 }
 
 type clientEnvelope struct {

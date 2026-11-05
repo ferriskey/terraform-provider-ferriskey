@@ -31,6 +31,9 @@ resource "ferriskey_client" "web" {
 
   # Optional token lifetime overrides (seconds).
   access_token_lifetime = 300
+
+  require_pkce           = true
+  backchannel_logout_uri = "https://app.acme.example/backchannel-logout"
 }
 
 # A public SPA client.
@@ -57,21 +60,28 @@ resource "ferriskey_client" "spa" {
 ### Optional
 
 - `access_token_lifetime` (Number) Access token lifetime override (seconds). Server default when omitted.
+- `backchannel_logout_session_required` (Boolean) Whether the client needs the `sid` claim in its logout tokens.
+- `backchannel_logout_uri` (String) OIDC Back-Channel Logout endpoint of the client. Remove it from the configuration to clear it.
+- `consent_required` (Boolean) Whether users must grant consent before the client receives tokens.
 - `direct_access_grants_enabled` (Boolean) Whether the direct access grants (resource owner password) flow is enabled.
 - `enabled` (Boolean) Whether the client is enabled. Defaults to `true`.
 - `id_token_lifetime` (Number) ID token lifetime override (seconds). Server default when omitted.
 - `name` (String) Human-readable client name. Defaults to the `client_id` server-side when omitted.
+- `oauth_device_code_grant_enabled` (Boolean) Whether the client may use the OAuth 2.0 Device Authorization Grant.
 - `protocol` (String) Client protocol. Defaults to `openid-connect`. Changing this forces a new resource.
 - `public_client` (Boolean) Whether the client is a public client (no secret). Changing this forces a new resource.
 - `redirect_uris` (Set of String) Set of allowed redirect URIs. Order is not significant. Omit to leave existing redirect URIs unmanaged; set to `[]` to remove all.
 - `refresh_token_lifetime` (Number) Refresh token lifetime override (seconds). Server default when omitted.
+- `require_pkce` (Boolean) Whether the authorization code flow requires PKCE.
 - `service_account_enabled` (Boolean) Whether a service account is enabled for this client (client credentials grant). Changing this forces a new resource.
 - `temporary_token_lifetime` (Number) Temporary token lifetime override (seconds). Server default when omitted.
+- `token_exchange_enabled` (Boolean) Whether the client may use OAuth 2.0 Token Exchange (RFC 8693). See `ferriskey_client_token_exchange_policy`.
 
 ### Read-Only
 
 - `client_uuid` (String) Server-assigned UUID of the client.
 - `id` (String) Composite identifier `{realm}/{uuid}`.
+- `registration_source` (String) How the client was registered (e.g. `admin`, `dynamic`).
 - `secret` (String, Sensitive) Client secret (confidential clients only). Server-generated and stored in state.
 - `service_account_user_id` (String) UUID of the client's service account user (present only when `service_account_enabled` is true). Assign roles to this user to grant the service account permissions — see `ferriskey_user_role`.
 

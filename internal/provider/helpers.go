@@ -47,3 +47,18 @@ func parseRealmScopedID(s string) (realmScopedID, error) {
 	}
 	return realmScopedID{Realm: parts[0], ID: parts[1]}, nil
 }
+
+// parseCompositeID splits an import ID of the form "{a}/{b}/..." into exactly
+// len(names) non-empty parts. names describe each part and are only used to
+// build the error message, e.g. parseCompositeID(id, "realm", "client_id", "uuid").
+func parseCompositeID(s string, names ...string) ([]string, error) {
+	parts := strings.SplitN(s, "/", len(names))
+	ok := len(parts) == len(names)
+	for _, p := range parts {
+		ok = ok && p != ""
+	}
+	if !ok {
+		return nil, fmt.Errorf("invalid import ID %q: expected the format \"{%s}\"", s, strings.Join(names, "}/{"))
+	}
+	return parts, nil
+}
